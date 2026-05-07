@@ -78,6 +78,8 @@ class IncotermController extends Controller
 
          }
 
+         // Mostrar Incoterm por ID
+
          public function show($id) {
 
             try {
@@ -108,6 +110,8 @@ class IncotermController extends Controller
             }
 
          }
+
+         // Actualizar un Incoterm existente
 
          public function update(Request $request, $id) {
 
@@ -151,6 +155,8 @@ class IncotermController extends Controller
             }
          }
 
+        // Eliminar un Incoterm
+
          function destroy($id) {
 
             try {
@@ -178,7 +184,7 @@ class IncotermController extends Controller
                     'error' => $e->getMessage()
                 ], 500);
             }
-            
+
          }
 
 
