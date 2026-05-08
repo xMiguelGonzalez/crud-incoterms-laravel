@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Incoterm;
 use Illuminate\Support\Facades\Validator;
 
-class IncotermController extends Controller
+class IncotermController
 {
 
     // OBTENER LOS INCOTERMS
@@ -157,7 +156,7 @@ class IncotermController extends Controller
 
         // Eliminar un Incoterm
 
-         function destroy($id) {
+         public function destroy($id) {
 
             try {
                 $incoterm = Incoterm::find($id);

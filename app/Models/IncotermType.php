@@ -8,6 +8,7 @@ class IncotermType extends Model
 
 {
     protected $table = 'INCOTERM_TYPES';
+    protected $primaryKey = 'ID';
     public $timestamps = false;
 
 }

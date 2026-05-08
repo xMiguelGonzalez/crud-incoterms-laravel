@@ -10,6 +10,8 @@ class Incoterm extends Model
 {
 
     protected $table = 'INCOTERMS';
+    
+    protected $primaryKey = 'ID';
 
     public $timestamps = false;
 
