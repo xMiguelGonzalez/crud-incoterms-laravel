@@ -26,27 +26,27 @@
         </div>
         
         <div class="grupo-input">
-          <label>Incoterm</label>
-          <select v-model="formulario.INCOTERM_TYPE_ID" :disabled="cargando">
-            <option value="" disabled>Selecciona el tipo...</option>
-            <option v-for="tipo in tiposList" :key="tipo.ID" :value="tipo.ID">
-              {{ tipo.CODE }} - {{ tipo.NAME }}
-            </option>
-          </select>
+          <label>Código del Incoterm</label>
+          <input type="text" v-model="formulario.CODE" placeholder="Ej: FOB" :disabled="cargando">
         </div>
 
         <div class="grupo-input">
-          <label>Punto de Entrega (Hito Logístico)</label>
-          <select v-model="formulario.TRACKING_STEP_ID" :disabled="cargando">
-            <option value="" disabled>Selecciona el momento...</option>
-            <option v-for="paso in pasosList" :key="paso.ID" :value="paso.ID">
-              [{{ paso.ORDER_NUM }}] {{ paso.NAME }}
-            </option>
-          </select>
+          <label>Nombre Completo</label>
+          <input type="text" v-model="formulario.NAME" placeholder="Ej: Free On Board" :disabled="cargando">
+        </div>
+
+        <div class="grupo-input">
+          <label>Fases y Puntos de Entrega Incluidos</label>
+          <div class="checkbox-list">
+            <label v-for="paso in pasosList" :key="paso.ID" class="checkbox-item">
+              <input type="checkbox" :value="paso.ID" v-model="formulario.STEPS" :disabled="cargando">
+              <span class="step-text">[{{ paso.ORDER_NUM }}] {{ paso.NAME }}</span>
+            </label>
+          </div>
         </div>
 
         <div class="acciones-formulario">
-          <button class="boton-guardar" @click="guardarIncoterm" :disabled="cargando || !formulario.INCOTERM_TYPE_ID || !formulario.TRACKING_STEP_ID">
+          <button class="boton-guardar" @click="guardarIncoterm" :disabled="cargando || !formulario.CODE || !formulario.NAME">
             <span v-if="!cargando">{{ modoEdicion ? 'Actualizar Registro' : 'Crear Incoterm' }}</span>
             <span v-else class="spinner"></span>
           </button>
@@ -71,16 +71,26 @@
             <thead>
               <tr>
                 <th>Código</th>
-                <th>Descripción del Riesgo</th>
-                <th>Momento de Entrega</th>
+                <th>Nombre Completo</th>
+                <th>Fases Logísticas Asignadas</th>
                 <th class="col-acciones"></th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="incoterm in incotermsList" :key="incoterm.ID" :class="{ 'row-editing': formulario.ID === incoterm.ID }">
-                <td><span class="badge-code">{{ incoterm.incotermType?.CODE || incoterm.incoterm_type?.CODE || '???' }}</span></td>
-                <td><div class="txt-main">{{ incoterm.incotermType?.NAME || incoterm.incoterm_type?.NAME || 'Sin nombre' }}</div></td>
-                <td><div class="txt-step">{{ incoterm.trackingStep?.NAME || incoterm.tracking_step?.NAME || 'No asignado' }}</div></td>
+                
+                <td><span class="badge-code">{{ incoterm.CODE }}</span></td>
+                <td><div class="txt-main">{{ incoterm.NAME }}</div></td>
+                
+                <td class="td-fases">
+                  <span v-for="step in incoterm.tracking_steps" :key="step.ID" class="badge-step">
+                    {{ step.NAME }}
+                  </span>
+                  <span v-if="!incoterm.tracking_steps || incoterm.tracking_steps.length === 0" class="sin-fases">
+                    Sin fases asignadas
+                  </span>
+                </td>
+
                 <td class="celda-acciones">
                   <button class="btn-action edit" @click="cargarDatosParaEditar(incoterm)">✏️</button>
                   <button class="btn-action delete" @click="borrarIncoterm(incoterm.ID)">🗑️</button>
@@ -95,7 +105,7 @@
           </div>
 
           <div v-if="incotermsList.length === 0 && !cargandoTabla" class="mensaje-vacio">
-            <img src="https://cdn-icons-png.flaticon.com/512/4076/4076432.png" width="80" />
+            <img src="https://cdn-icons-png.flaticon.com/512/4076/4076432.png" width="80" alt="Sin datos" />
             <p>No hay datos. Empieza creando un Incoterm a la izquierda.</p>
           </div>
         </div>
@@ -108,11 +118,10 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 
-// ESTADOS
+// ESTADOS (Actualizado al nuevo modelo de datos)
 const incotermsList = ref([]); 
-const tiposList = ref([]);     
 const pasosList = ref([]);     
-const formulario = ref({ ID: null, INCOTERM_TYPE_ID: '', TRACKING_STEP_ID: '' });
+const formulario = ref({ ID: null, CODE: '', NAME: '', STEPS: [] });
 const modoEdicion = ref(false);
 const cargando = ref(false);
 const cargandoTabla = ref(false);
@@ -129,14 +138,11 @@ const API_BASE = 'http://127.0.0.1:8000/api';
 // CARGAS INICIALES
 const cargarDesplegables = async () => {
   try {
-    const [resT, resP] = await Promise.all([
-      fetch(`${API_BASE}/incoterm-types`),
-      fetch(`${API_BASE}/tracking-steps`)
-    ]);
-    const [jsonT, jsonP] = await Promise.all([resT.json(), resP.json()]);
-    tiposList.value = jsonT.data;
+    // Ya solo necesitamos los pasos para los checkboxes
+    const resP = await fetch(`${API_BASE}/tracking-steps`);
+    const jsonP = await resP.json();
     pasosList.value = jsonP.data;
-  } catch (e) { mostrarToast("Error al cargar diccionarios", "error"); }
+  } catch (e) { mostrarToast("Error al cargar los pasos logísticos", "error"); }
 };
 
 const obtenerIncoterms = async () => {
@@ -152,17 +158,21 @@ const obtenerIncoterms = async () => {
 // ACCIONES
 const cargarDatosParaEditar = (incoterm) => {
   modoEdicion.value = true;
+  // Extraemos los IDs de los pasos para que se marquen los checkboxes en el formulario
+  const pasosIds = incoterm.tracking_steps ? incoterm.tracking_steps.map(s => s.ID) : [];
+  
   formulario.value = {
     ID: incoterm.ID,
-    INCOTERM_TYPE_ID: incoterm.INCOTERM_TYPE_ID,
-    TRACKING_STEP_ID: incoterm.TRACKING_STEP_ID
+    CODE: incoterm.CODE,
+    NAME: incoterm.NAME,
+    STEPS: pasosIds
   };
   window.scrollTo({ top: 0, behavior: 'smooth' });
 };
 
 const cancelarEdicion = () => {
   modoEdicion.value = false;
-  formulario.value = { ID: null, INCOTERM_TYPE_ID: '', TRACKING_STEP_ID: '' };
+  formulario.value = { ID: null, CODE: '', NAME: '', STEPS: [] };
 };
 
 const guardarIncoterm = async () => {
@@ -183,15 +193,15 @@ const guardarIncoterm = async () => {
       cancelarEdicion();
       obtenerIncoterms();
     } else {
-      mostrarToast(json.message || "Error en los datos", "error");
+      mostrarToast(json.message || "Error en los datos de validación", "error");
     }
   } catch (e) {
-    mostrarToast("Fallo en el servidor", "error");
+    mostrarToast("Fallo en el servidor al guardar", "error");
   } finally { cargando.value = false; }
 };
 
 const borrarIncoterm = async (id) => {
-  if (!confirm('¿Confirmas la eliminación definitiva de este registro?')) return;
+  if (!confirm('¿Confirmas la eliminación definitiva de este Incoterm y todas sus relaciones?')) return;
   
   try {
     const res = await fetch(`${API_BASE}/incoterms/${id}`, { 
@@ -201,7 +211,7 @@ const borrarIncoterm = async (id) => {
     const json = await res.json();
     
     if (json.success) {
-      mostrarToast("Registro eliminado");
+      mostrarToast("Registro eliminado correctamente");
       obtenerIncoterms();
     } else {
       mostrarToast(json.message, "error");
@@ -266,7 +276,6 @@ onMounted(() => {
   box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
 }
 .title-area h1 { font-size: 2.2rem; margin: 0; color: #0f172a; }
-.badge-v1 { font-size: 0.8rem; background: #e2e8f0; padding: 4px 8px; border-radius: 6px; vertical-align: middle; }
 .title-area p { margin: 5px 0 0; color: #64748b; }
 
 /* GRID */
@@ -286,11 +295,14 @@ onMounted(() => {
 }
 
 .form-editing { border: 2px solid #3b82f6; background: #f0f7ff; }
+.form-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.form-header h2 { margin: 0; }
+.edit-indicator { background: #dbeafe; color: #1e40af; padding: 4px 10px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; }
 
-/* INPUTS */
+/* INPUTS DE TEXTO */
 .grupo-input { margin-bottom: 25px; }
 label { display: block; font-weight: 600; color: #334155; margin-bottom: 10px; font-size: 0.9rem; }
-select {
+input[type="text"] {
   width: 100%;
   padding: 14px;
   border: 2px solid #e2e8f0;
@@ -298,8 +310,25 @@ select {
   font-size: 1rem;
   transition: all 0.2s;
   background: white;
+  box-sizing: border-box;
 }
-select:focus { border-color: #3b82f6; outline: none; }
+input[type="text"]:focus { border-color: #3b82f6; outline: none; }
+input[type="text"]:disabled { background: #f1f5f9; cursor: not-allowed; }
+
+/* CHECKBOXES */
+.checkbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 12px;
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+.checkbox-item { display: flex; align-items: center; gap: 10px; font-weight: 400; cursor: pointer; padding: 4px 0; margin: 0;}
+.step-text { font-size: 0.9rem; color: #475569; }
 
 /* BOTONES */
 .boton-guardar {
@@ -311,11 +340,16 @@ select:focus { border-color: #3b82f6; outline: none; }
   display: flex;
   justify-content: center;
   align-items: center;
+  border: none;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: 0.2s;
 }
 .boton-guardar:hover:not(:disabled) { background: #334155; transform: translateY(-2px); }
 .boton-guardar:disabled { opacity: 0.5; cursor: not-allowed; }
 
-.boton-cancelar { width: 100%; background: transparent; color: #64748b; margin-top: 10px; border: 1px solid #e2e8f0; }
+.boton-cancelar { width: 100%; background: transparent; color: #64748b; margin-top: 10px; border: 1px solid #e2e8f0; padding: 12px; border-radius: 12px; font-weight: 600; cursor: pointer; }
 
 /* TABLA */
 .cabecera-tabla { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
@@ -333,7 +367,11 @@ tr:hover td { background: #f8fafc; }
 
 .badge-code { background: #0f172a; color: white; padding: 5px 10px; border-radius: 8px; font-weight: 800; font-size: 0.85rem; }
 .txt-main { font-weight: 600; color: #1e293b; }
-.txt-step { color: #64748b; font-size: 0.95rem; }
+
+/* ETIQUETAS DE FASES */
+.td-fases { max-width: 250px; display: flex; flex-wrap: wrap; gap: 6px; }
+.badge-step { background: #e0e7ff; color: #4338ca; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; }
+.sin-fases { color: #94a3b8; font-style: italic; font-size: 0.85rem; }
 
 /* ACTIONS */
 .btn-action { background: #f1f5f9; border: none; padding: 10px; border-radius: 10px; cursor: pointer; transition: 0.2s; }
@@ -354,5 +392,7 @@ tr:hover td { background: #f8fafc; }
 .loading-state { text-align: center; padding: 50px; color: #94a3b8; }
 .spinner-large { width: 40px; height: 40px; border: 4px solid #f1f5f9; border-top-color: #3b82f6; border-radius: 50%; animation: spin 1s infinite linear; margin: 0 auto 15px; }
 
+.btn-refresh { background: none; border: none; font-size: 1.2rem; cursor: pointer; }
 .btn-refresh.spinning { animation: spin 1s infinite linear; }
+.mensaje-vacio { text-align: center; padding: 40px; color: #64748b; }
 </style>

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use App\Models\IncotermType;
 use App\Models\Incoterm;
 use Illuminate\Support\Facades\Validator;
 
@@ -16,17 +17,19 @@ class IncotermController
     {
 
       try {
-        $incoterms = Incoterm::with(['incotermType', 'trackingStep'])->get();
+
+        $tipos = IncotermType::with(['trackingSteps'])->get();
+
         return response()->json([
             'success' => true,
-            'data' => $incoterms
+            'data' => $tipos
         ], 200);
 
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
                 'message' => 'Error al obtener los incoterms',
-                'error' => $e->getMessage()
+                'error' => $e->getMessage()                                                                                                                                                                                                              
             ], 500);
         }
     }
@@ -41,8 +44,10 @@ class IncotermController
         
             $validator = Validator::make($request->all(), [
 
-            'INCOTERM_TYPE_ID' => 'required|exists:INCOTERM_TYPES,ID',
-            'TRACKING_STEP_ID' => 'required|exists:TRACKING_STEPS,ID',
+           'CODE' => 'required|string|max:10',
+            'NAME' => 'required|string|max:255',
+            'STEPS' => 'array',
+            'STEPS.*' => 'exists:TRACKING_STEPS,ID'
             
             ]);
 
@@ -57,12 +62,26 @@ class IncotermController
             }
 
             try {
-                $incoterm = Incoterm::create($request->all());
+                $tipo = IncotermType::create($request->only(['CODE', 'NAME']));
+
+
+                // Guardamos los pasos en la tabla intermedia INCOTERMS
+
+
+                if ($request->has('STEPS')) {
+
+                foreach ($request->STEPS as $step_id) {
+                    Incoterm::create([
+                        'INCOTERM_TYPE_ID' => $tipo->ID,
+                        'TRACKING_STEP_ID' => $step_id
+                    ]);
+                }
+            }
 
                 return response()->json([
                     'success' => true,
                     'message' => 'Incoterm creado exitosamente',
-                    'data' => $incoterm
+                    'data' => $tipo
                 ], 201);
 
             } catch (\Exception $e) {
@@ -83,9 +102,9 @@ class IncotermController
 
             try {
 
-                $incoterm = Incoterm::with(['incotermType', 'trackingStep'])->find($id);
+                $tipo = IncotermType::with(['trackingSteps'])->find($id);
 
-                if (!$incoterm) {
+                if (!$tipo) {
 
                     return response()->json([
                         'success' => false,
@@ -95,7 +114,7 @@ class IncotermController
                 }
                 return response()->json([
                     'success' => true,
-                    'data' => $incoterm
+                    'data' => $tipo
                 ], 200);
 
             } catch (\Exception $e) {
@@ -115,9 +134,10 @@ class IncotermController
          public function update(Request $request, $id) {
 
             $validator = Validator::make($request->all(), [
-                'INCOTERM_TYPE_ID' => 'sometimes|exists:INCOTERM_TYPES,ID',
-                'TRACKING_STEP_ID' => 'sometimes|exists:TRACKING_STEPS,ID',
-            ]);
+            'CODE' => 'sometimes|string|max:10',
+            'NAME' => 'sometimes|string|max:255',
+            'STEPS' => 'array',
+        ]);
 
             if ($validator->fails()) {
                 return response()->json([
@@ -128,21 +148,37 @@ class IncotermController
             }
 
             try {
-                $incoterm = Incoterm::find($id);
+                $tipo = IncotermType::find($id);
 
-                if (!$incoterm) {
+                if (!$tipo) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Incoterm no encontrado'
                     ], 404);
                 }
 
-                $incoterm->update($request->all());
+                $tipo->update($request->only(['CODE', 'NAME']));
+
+
+                if ($request->has('STEPS')) {
+
+                // limpiamos los pasos viejos
+                Incoterm::where('INCOTERM_TYPE_ID', $tipo->ID)->delete();
+                
+                // Luego guardamos los nuevos seleccionados
+
+                foreach ($request->STEPS as $step_id) {
+                    Incoterm::create([
+                        'INCOTERM_TYPE_ID' => $tipo->ID,
+                        'TRACKING_STEP_ID' => $step_id
+                    ]);
+                }
+            }
 
                 return response()->json([
                     'success' => true,
                     'message' => 'Incoterm actualizado exitosamente',
-                    'data' => $incoterm
+                    'data' => $tipo
                 ], 200);
 
             } catch (\Exception $e) {
@@ -159,16 +195,18 @@ class IncotermController
          public function destroy($id) {
 
             try {
-                $incoterm = Incoterm::find($id);
+                $tipo = IncotermType::find($id);
 
-                if (!$incoterm) {
+                if (!$tipo) {
                     return response()->json([
                         'success' => false,
                         'message' => 'Incoterm no encontrado'
                     ], 404);
                 }
 
-                $incoterm->delete();
+                Incoterm::where('INCOTERM_TYPE_ID', $tipo->ID)->delete();
+                
+                $tipo->delete();
 
                 return response()->json([
                     'success' => true,

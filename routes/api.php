@@ -13,16 +13,6 @@ Route::apiResource('incoterms', IncotermController::class);
 
 
 
-// SABER TIPO INCOTERMS
-
-Route::get('/incoterm-types', function () {
-    return response()->json([
-        'success' => true, 
-        'data' => IncotermType::all() 
-    ]);
-});
-
-
 
 // BUSCAR TRACKING STEPS
 
