@@ -8,7 +8,7 @@
 
   <div class="layout">
     <FormularioIncoterms :pasos="listaPasos" :incotermEditando="incotermAEditar" @guardar="guardarDatosenAPI"
-      @cancelar="IncotermAEditar = null" />
+      @cancelar="incotermAEditar = null" />
 
 
     <TablaIncoterms :incoterms="listaIncoterms" @editar="editarIncoterm" @borrar="borrarIncoterm" />
