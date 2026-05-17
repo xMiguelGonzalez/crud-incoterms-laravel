@@ -29,7 +29,7 @@ const listaIncoterms = ref([]);
 const listaPasos = ref([]);
 const incotermAEditar = ref(null);
 
-const URL_API = 'http://127.0.0.1:8000/api';
+const URL_API = 'http://api-miguel.51.83.192.177.nip.io/api';
 
 const cargarPasos = async () => {
 
