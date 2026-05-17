@@ -1,0 +1,11 @@
+# Ignorar dependencias locales
+/vendor
+/node_modules
+/public/build
+/public/hot
+
+# Ignorar archivos de Git y entorno local
+.git
+.env
+.phpunit.cache
+

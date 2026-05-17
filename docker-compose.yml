@@ -1,0 +1,16 @@
+services:
+  backend:
+    build:
+      context: .
+    ports:
+      - "8000:80" # mapea puerto 8000 de mi pc a 80 del contenedor
+    env_file:
+      - .env
+
+  frontend:
+    build:
+      context: ./incoterms-frontend
+    ports:
+      - "3000:80" # mapea puerto 3000 de mi pc a 80 del contenedor Nginx
+    depends_on:
+      - backend # No arranques el frontend hasta que el backend esté listo
