@@ -2,15 +2,24 @@ services:
   backend:
     build:
       context: .
-    ports:
-      - "8000:80" # mapea puerto 8000 de mi pc a 80 del contenedor
+    volumes:
+      - ./.env:/var/www/html/.env # <--- Añade este túnel
     env_file:
       - .env
 
   frontend:
     build:
       context: ./incoterms-frontend
-    ports:
-      - "3000:80" # mapea puerto 3000 de mi pc a 80 del contenedor Nginx
     depends_on:
-      - backend # No arranques el frontend hasta que el backend esté listo
+      - backend
+
+  proxy-inverso:
+    image: nginx:alpine
+    container_name: proxy-inverso
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend
+      - frontend
